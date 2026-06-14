@@ -1,0 +1,61 @@
+name: Build Fleet API image
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            tag_suffix: amd64
+          - platform: linux/arm64
+            tag_suffix: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push TeslaMate
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/teslamate:main-${{ matrix.tag_suffix }}
+            ghcr.io/${{ github.repository_owner }}/teslamate:main
+
+      - name: Build and push Grafana
+        uses: docker/build-push-action@v6
+        with:
+          context: ./grafana
+          file: ./grafana/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/teslamate/grafana:main-${{ matrix.tag_suffix }}
+            ghcr.io/${{ github.repository_owner }}/teslamate/grafana:main
